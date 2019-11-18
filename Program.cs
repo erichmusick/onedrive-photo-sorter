@@ -47,8 +47,8 @@ namespace OneDrivePhotoSorter
             Console.WriteLine($"Found WhatsApp at: Id={whatsApp?.Id}, Name={whatsApp?.Name}, ParentName={whatsApp.ParentName}");
 
             // Copy/Paste that output into this, and uncomment:
-            // var cameraRoll = new FolderItem("DRIVEID!123", "Camera Roll", "/root/Pictures");
-            // var whatsApp = new FolderItem("DRIVEID!456", "WhatsApp", "/root/Pictures");
+            // var cameraRoll = new FolderModel("DRIVEID!123", "Camera Roll", "/root/Pictures");
+            // var whatsApp = new FolderModel("DRIVEID!456", "WhatsApp", "/root/Pictures");
 
             // Prepare library:
             // This is very brute-force; could instead create folders on demand.
