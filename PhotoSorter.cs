@@ -54,13 +54,12 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
             }
         }
 
-        public async Task MovePhotos(FolderModel sourceRoot, FolderModel destinationRoot, Func<ItemModel, bool> matches, ItemsController c)
+        public async Task MovePhotos(FolderModel sourceRoot, FolderModel destinationRoot, Func<ItemModel, bool> matches)
         {
-
-            var destinationFolders = await c.GetFolders(destinationRoot, recursive : true);
+            var destinationFolders = await _controller.GetFolders(destinationRoot, recursive : true);
             var destinationByPath = destinationFolders.ToLookup(item => item.FullName, item => new FolderModel(item.Id, item.Name, item.Folder.FullName));
 
-            var items = await c.GetImagesAndFoldersRecursiveAsync(sourceRoot);
+            var items = await _controller.GetImagesAndFoldersRecursiveAsync(sourceRoot);
             Console.WriteLine($"Found {items.Count} at source.");
             var tasks = new List<Task>();
             foreach (var item in items.Where(matches))
@@ -80,7 +79,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
                     tasks.Add(
                         bulkhead.ExecuteAsync(async() =>
                         {
-                            await c.MoveItem(item, destination);
+                            await _controller.MoveItem(item, destination);
                         })
                     );
                 }
