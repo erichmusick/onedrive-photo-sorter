@@ -2,6 +2,9 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.Model
 {
     class FolderModel
     {
+        public FolderModel(string id, string name, FolderModel parent) : this(id, name, parent.FullName)
+        { }
+
         public FolderModel(string id, string name, string parentName)
         {
             Id = id;

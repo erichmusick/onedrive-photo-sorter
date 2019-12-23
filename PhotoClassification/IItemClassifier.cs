@@ -5,16 +5,17 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.PhotoClassification
 {
     enum ItemType
     {
+        Unclassified,
+
         Folder,
         File,
         Photo,
-        WhatsAppPhoto,
         Video,
     }
 
     class Classification
     {
-        public Classification(ItemType type, string reason)
+        public Classification(ItemType type, string reason = null)
         {
             Type = type;
             Reason = reason;
@@ -43,7 +44,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.PhotoClassification
                 new PhotoWithExif(),
 
                 // Must be Last:
-                new WhatsAppPhotoClassifier()
+                new UnclassifiedClassifier()
             );
         }
     }
@@ -155,24 +156,14 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.PhotoClassification
     }
 
     /// <summary>
-    /// Classifies photos as having come from WhatsApp.
+    /// Classifies items as "Unclassified". We weren't able to confidently
+    /// determine the item's type.
     /// </summary>
-    /// <remarks>
-    /// A little hacky ... this implementation *assumes* all proper photos have been
-    /// already classified as such.
-    /// Alternate implementation would be to negate the set of "is photo" classifiers.
-    /// </remarks>
-    class WhatsAppPhotoClassifier : IItemClassifier
+    class UnclassifiedClassifier : IItemClassifier
     {
         public Classification Classify(ItemModel item)
         {
-            var photo = item.Item.Photo;
-            if (photo == null)
-            {
-                return null;
-            }
-
-            return new Classification(ItemType.WhatsAppPhoto, "PhotoWithoutExif");
+            return new Classification(ItemType.Unclassified, null);
         }
     }
 

@@ -38,7 +38,17 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
         {
             var folders = await _controller.GetFolders(folder, recurse);
 
-            return folders.Select(f => new FolderModel(f.Id, f.Name, f.Folder.FullName)).ToList();
+            return folders.Select(f => new FolderModel(f.Id, f.Name, f.Folder)).ToList();
+        }
+
+        public async Task ListFoldersAsync(FolderModel folder, bool recurse = false)
+        {
+            var folders = await GetFoldersAsync(folder, recurse);
+
+            foreach (var f in folders)
+            {
+                Console.WriteLine($"{f.FullName}: {f.Id}");
+            }
         }
 
         public async Task ListItemsWithoutClassification(FolderModel root, bool recurse = true)
@@ -46,7 +56,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
             var items = recurse ? await _controller.GetImagesAndFoldersRecursiveAsync(root) : await _controller.GetImagesAndFolders(root);
             foreach (var item in items)
             {
-                if (item.Classification == null || item.Classification?.Type == ItemType.WhatsAppPhoto)
+                if (item.Classification == null || item.Classification?.Type == ItemType.Unclassified)
                 {
                     Console.WriteLine($"{item.Item.Id}: {item.Item.Name}. Is={item.Classification}, Taken={item.Item.Photo.TakenDateTime}, Camera={item.Item.Photo?.CameraMake} {item.Item.Photo?.CameraModel}");
                     //Console.WriteLine($"AllData={JsonConvert.SerializeObject(item.Item)}");
@@ -56,8 +66,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
 
         public async Task MovePhotos(FolderModel sourceRoot, FolderModel destinationRoot, Func<ItemModel, bool> matches)
         {
-            var destinationFolders = await _controller.GetFolders(destinationRoot, recursive : true);
-            var destinationByPath = destinationFolders.ToLookup(item => item.FullName, item => new FolderModel(item.Id, item.Name, item.Folder.FullName));
+            var destinations = new FolderProvider(destinationRoot, _controller);
 
             var items = await _controller.GetImagesAndFoldersRecursiveAsync(sourceRoot);
             Console.WriteLine($"Found {items.Count} at source.");
@@ -67,26 +76,17 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
                 // Camera Roll/YYYY/MM
                 var currentPath = item.Folder.FullName;
 
-                // TODO: This assumes Camera Roll and WhatsApp are peers.
-                // Instead use sourceRoot, destinationRoot to replace the item's path prefix.
-                var folderPath = currentPath.Replace("Camera Roll", "WhatsApp");
-                var destination = destinationByPath[folderPath].FirstOrDefault();
+                // Replace sourceRoot in item's current full path with destinationRoot.
+                var folderPath = destinationRoot.FullName + currentPath.Substring(sourceRoot.FullName.Length);
+                var destination = await destinations.GetOrCreate(folderPath);
 
-                Console.Write($"Moving {item.Name} ");
-                if (destination != null)
-                {
-                    Console.WriteLine($" from {item.Folder.FullName} to {destination.FullName}");
-                    tasks.Add(
-                        bulkhead.ExecuteAsync(async() =>
-                        {
-                            await _controller.MoveItem(item, destination);
-                        })
-                    );
-                }
-                else
-                {
-                    Console.WriteLine($"destination not found at {folderPath}");
-                }
+                tasks.Add(
+                    bulkhead.ExecuteAsync(async() =>
+                    {
+                        Console.WriteLine($"Moving {item.Name} from {item.Folder.FullName} to {destination.FullName}");
+                        await _controller.MoveItem(item, destination);
+                    })
+                );
             }
             await Task.WhenAll(tasks);
         }
@@ -107,21 +107,21 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
         /// This is overly optimistic (i.e. expects at least one photo per month),
         /// but is mildly more straightforward than lazily creating folders as we go.
         /// </remarks>
-        public async static Task CreateFolderForEachMonth(FolderModel root, ItemsController c)
+        public async Task CreateFolderForEachMonth(FolderModel root)
         {
-            var years = await c.GetFolders(root);
+            var years = await _controller.GetFolders(root);
             foreach (var year in years)
             {
                 Console.WriteLine($"{year.Name}");
 
-                var folder = new FolderModel(year.Id, year.Name, root.FullName);
-                var months = await c.GetFolders(folder);
+                var folder = new FolderModel(year.Id, year.Name, root);
+                var months = await _controller.GetFolders(folder);
                 var missingMonths = ExpectedMonths.Except(months.Select(m => m.Name));
 
                 foreach (var month in missingMonths)
                 {
                     Console.WriteLine($"Creating {folder.FullName}/{month}");
-                    await c.CreateFolder(month, folder);
+                    await _controller.CreateFolder(month, folder);
                 }
             }
         }
@@ -134,7 +134,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter
             // All folders
             var folders = await _controller.GetFolders(root, recursive : true);
             var folderByYearAndMonth = folders
-                .ToLookup(item => item.FullName, item => new FolderModel(item.Id, item.Name, item.Folder.FullName));
+                .ToLookup(item => item.FullName, item => new FolderModel(item.Id, item.Name, item.Folder));
 
             var items = await _controller.GetImagesAndFoldersRecursiveAsync(searchRoot);
 

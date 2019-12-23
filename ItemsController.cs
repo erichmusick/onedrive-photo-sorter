@@ -63,7 +63,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.Controllers
 
                 if (recursive)
                 {
-                    results.AddRange(await GetFolders(new FolderModel(child.Id, child.Name, folder.FullName)));
+                    results.AddRange(await GetFolders(new FolderModel(child.Id, child.Name, folder)));
                 }
             }
 
@@ -128,7 +128,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.Controllers
                     // Traverse folders
                     if (item.Classification?.Type == ItemType.Folder)
                     {
-                        folders.Enqueue(new FolderModel(item.Id, item.Name, folder.FullName));
+                        folders.Enqueue(new FolderModel(item.Id, item.Name, folder));
                     }
 
                     results.Add(item);
@@ -166,7 +166,7 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.Controllers
             Console.WriteLine(responseBody);
         }
 
-        internal async Task CreateFolder(string name, FolderModel parent)
+        internal async Task<FolderModel> CreateFolder(string name, FolderModel parent)
         {
             var driveItem = new DriveItem
             {
@@ -177,9 +177,11 @@ namespace ErichMusick.Tools.OneDrive.PhotoSorter.Controllers
                 }
             };
 
-            await _graphClient.Me.Drive.Items[parent.Id].Children
+            var item = await _graphClient.Me.Drive.Items[parent.Id].Children
                 .Request()
                 .AddAsync(driveItem);
+
+            return new FolderModel(item.Id, name, parent);
         }
     }
 }
